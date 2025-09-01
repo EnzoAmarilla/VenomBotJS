@@ -1,105 +1,3 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vincular WhatsApp - ReservaTurnos</title>
-  <script src="/socket.io/socket.io.js"></script>
-
-  <link rel="icon" href="https://reservaturnos.com/img/favicon.ico" type="image/x-icon">
-
-  <!-- Tailwind -->
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-
-  <style>
-    body {
-      font-family: 'Poppins', sans-serif;
-    }
-  </style>
-</head>
-<body class="bg-gray-50 text-gray-800 flex flex-col min-h-screen">
-
-  <!-- Navbar -->
-  <nav class="bg-white shadow-md">
-    <div class="max-w-6xl mx-auto px-4 flex justify-between items-center py-3">
-      <a href="https://reservaturnos.com">
-        <img src="https://reservaturnos.com/img/ReservaTurnosLogo.png" alt="Logo" class="w-12">
-      </a>
-      <a href="https://reservaturnos.com/dashboard" 
-         class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition font-semibold">
-        Volver al Dashboard
-      </a>
-    </div>
-  </nav>
-
-  <!-- Contenido principal -->
-  <main class="flex-grow flex items-center justify-center">
-    <div class="bg-white shadow-lg max-w-xl rounded-2xl p-10 text-center">
-      <h1 class="text-2xl font-bold text-purple-700 mb-3">Escaneá el QR para vincular tu WhatsApp</h1>
-      
-      <div class="status-bar" id="statusBar" style="display: none;">
-         <span id="statusText">🔄 Iniciando...</span>
-      </div>
-
-      <div class="flex items-center justify-center mb-3">
-          <i data-lucide="smartphone" class="w-4 h-4 md:w-5 md:h-5 mr-2"></i>
-          <p id="qrStatus">Cargando QR...</p>
-      </div>
-
-      <div id="attemptCount" style="display:none; margin-top: 10px; font-weight: bold;"></div>
-
-      <!-- Aquí va el QR generado dinámicamente por Venom Bot -->
-      <div id="qrContainer" class="mb-6 flex justify-center">
-        <!-- Tu script de QR lo renderiza acá -->
-      </div>
-
-      <p class="text-gray-600 mb-6">
-        Abri tu WhatsApp en el celular → <br>
-        Ajustes <strong>&gt;</strong> Dispositivos vinculados <strong>&gt;</strong> Vincular un dispositivo.
-      </p>
-
-      <div class="chat-section" style="display: none;">
-        <h3>💬 Mensajes en Tiempo Real</h3>
-        <div class="messages-container" id="messagesContainer">
-          <div class="info-card">
-            <strong>🤖 Bot iniciado</strong><br>
-            Los mensajes aparecerán aquí una vez que WhatsApp esté conectado.
-          </div>
-        </div>
-
-        <div class="controls">
-          <h4>📤 Enviar mensaje manual (opcional)</h4>
-          <div class="input-group">
-            <input type="text" id="phoneInput" placeholder="Número (ej: 5491123456789@c.us)" disabled>
-            <input type="text" id="messageInput" placeholder="Escribe tu mensaje..." disabled>
-            <button id="sendButton" onclick="sendManualMessage()" disabled>Enviar</button>
-          </div>
-        </div>
-      </div>
-
-      <a href="https://reservaturnos.com/dashboard" 
-         class="inline-block bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition font-medium">
-        Volver al Dashboard
-      </a>
-    </div>
-  </main>
-
-  <!-- Footer -->
-  <footer class="bg-gray-200 py-4 text-center text-sm text-gray-600">
-    &copy; <script>document.write(new Date().getFullYear())</script> ReservaTurnos. Todos los derechos reservados.
-  </footer>
-
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      lucide.createIcons();
-    });
-  </script>
-  <!-- Scripts de VenomBot (ejemplo) -->
-  <script>
     const socket = io();
     const sessionId = "profesional_2"; // 👉 cámbialo dinámicamente según login
 
@@ -171,9 +69,8 @@
     // ================================
     function displayQRCode(qrData, attempts) {
       qrContainer.innerHTML = `<img src="${qrData}" alt="Código QR" class="qr-code">`;
-      qrStatus.textContent = `Esperando escaneo de QR`;
+      qrStatus.textContent = `📱 Escanea este código QR con WhatsApp`;
       attemptCount.textContent = `Intento: ${attempts}`;
-      lucide.createIcons();
     }
 
     function hideQRCode() {
@@ -192,7 +89,7 @@
     function updateStatus(status, connected) {
       const statusMessages = {
         'isLogged': '✅ WhatsApp conectado',
-        'notLogged': '<i data-lucide="plus-circle" class="w-4 h-4 md:w-5 md:h-5"></i> Esperando escaneo de QR',
+        'notLogged': '🔄 Esperando escaneo de QR',
         'qrReadSuccess': '✅ QR escaneado exitosamente',
         'qrReadFail': '❌ Error al leer QR',
         'browserClose': '❌ Navegador cerrado',
@@ -283,6 +180,3 @@
         addSystemMessage(`❌ Error de red: ${error.message}`, 'error');
       }
     }
-  </script>
-</body>
-</html>

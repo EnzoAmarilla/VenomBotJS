@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Venom Bot Demo - WhatsApp Bot</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #25D366, #128C7E);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #075E54;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .status-bar {
+            background: #128C7E;
+            padding: 15px;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .status-connected {
+            background: #25D366 !important;
+        }
+
+        .status-error {
+            background: #dc3545 !important;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            min-height: 500px;
+        }
+
+        .qr-section {
+            padding: 30px;
+            background: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-right: 1px solid #dee2e6;
+        }
+
+        .qr-code {
+            max-width: 250px;
+            max-height: 250px;
+            border: 3px solid #25D366;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .qr-placeholder {
+            width: 250px;
+            height: 250px;
+            background: #e9ecef;
+            border: 2px dashed #6c757d;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6c757d;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .chat-section {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages-container {
+            flex: 1;
+            background: #e5ddd5;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .message-received {
+            background: white;
+            border-left: 3px solid #25D366;
+        }
+
+        .message-sent {
+            background: #dcf8c6;
+            margin-left: auto;
+            border-right: 3px solid #128C7E;
+        }
+
+        .message-time {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .controls {
+            margin-top: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input, button {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        input {
+            flex: 1;
+        }
+
+        button {
+            background: #25D366;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #128C7E;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .info-card {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .error-card {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .success-card {
+            background: #e8f5e8;
+            border-left: 4px solid #4caf50;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .qr-section {
+                border-right: none;
+                border-bottom: 1px solid #dee2e6;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🕷️ Venom Bot Demo</h1>
+            <p>Bot de WhatsApp con respuestas automáticas</p>
+        </div>
+
+        <div class="status-bar" id="statusBar">
+            <span id="statusText">🔄 Iniciando...</span>
+        </div>
+
+        <div class="instructions">
+            <h3>📋 Instrucciones:</h3>
+            <ol>
+                <li><strong>Escanea el QR:</strong> Usa la app de WhatsApp en tu teléfono para escanear el código QR</li>
+                <li><strong>Conexión automática:</strong> Una vez escaneado, el bot se conectará automáticamente</li>
+                <li><strong>Envía mensajes:</strong> Envía mensajes al número conectado desde otro WhatsApp</li>
+                <li><strong>Respuestas automáticas:</strong> El bot responderá automáticamente con comandos como: <code>hola</code>, <code>info</code>, <code>hora</code>, <code>ayuda</code></li>
+            </ol>
+        </div>
+
+        <div class="main-content">
+            <!-- Sección del código QR -->
+            <div class="qr-section">
+                <h3>📱 Código QR de WhatsApp</h3>
+                <div id="qrContainer">
+                    <div class="qr-placeholder">
+                        <div>
+                            <div style="font-size: 2em; margin-bottom: 10px;">📱</div>
+                            <div>Esperando código QR...</div>
+                        </div>
+                    </div>
+                </div>
+                <p id="qrStatus">Iniciando Venom Bot...</p>
+                <div id="attemptCount" style="margin-top: 10px; font-weight: bold;"></div>
+            </div>
+
+            <!-- Sección del chat -->
+            <div class="chat-section">
+                <h3>💬 Mensajes en Tiempo Real</h3>
+                <div class="messages-container" id="messagesContainer">
+                    <div class="info-card">
+                        <strong>🤖 Bot iniciado</strong><br>
+                        Los mensajes aparecerán aquí una vez que WhatsApp esté conectado.
+                    </div>
+                </div>
+
+                <!-- Controles para enviar mensajes manualmente -->
+                <div class="controls">
+                    <h4>📤 Enviar mensaje manual (opcional)</h4>
+                    <div class="input-group">
+                        <input type="text" id="phoneInput" placeholder="Número (ej: 5491123456789@c.us)" disabled>
+                        <input type="text" id="messageInput" placeholder="Escribe tu mensaje..." disabled>
+                        <button id="sendButton" onclick="sendManualMessage()" disabled>Enviar</button>
+                    </div>
+                    <small style="color: #666;">Nota: El formato del número debe incluir código de país sin signos (ej: 5491123456789@c.us)</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Conectar con Socket.IO
+        const socket = io();
+        
+        let isConnected = false;
+        let messageCount = 0;
+
+        // Elementos del DOM
+        const statusBar = document.getElementById('statusBar');
+        const statusText = document.getElementById('statusText');
+        const qrContainer = document.getElementById('qrContainer');
+        const qrStatus = document.getElementById('qrStatus');
+        const attemptCount = document.getElementById('attemptCount');
+        const messagesContainer = document.getElementById('messagesContainer');
+        const phoneInput = document.getElementById('phoneInput');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+
+        // Escuchar eventos de Socket.IO
+        socket.on('connect', () => {
+            console.log('🔌 Conectado al servidor');
+            addSystemMessage('🔌 Conectado al servidor');
+        });
+
+        socket.on('qrCode', (data) => {
+            console.log('📱 Código QR recibido');
+            displayQRCode(data.qr, data.attempts);
+        });
+
+        socket.on('sessionStatus', (data) => {
+            console.log('📊 Estado de sesión:', data);
+            updateStatus(data.status, data.isConnected);
+        });
+
+        socket.on('connected', (data) => {
+            console.log('✅ WhatsApp conectado!');
+            isConnected = true;
+            updateStatus('isLogged', true);
+            hideQRCode();
+            addSystemMessage('✅ WhatsApp conectado exitosamente!', 'success');
+            enableControls();
+        });
+
+        socket.on('messageReceived', (data) => {
+            console.log('📨 Mensaje recibido:', data);
+            addReceivedMessage(data);
+        });
+
+        socket.on('messageSent', (data) => {
+            console.log('📤 Mensaje enviado:', data);
+            addSentMessage(data);
+        });
+
+        socket.on('error', (data) => {
+            console.error('❌ Error:', data);
+            addSystemMessage(`❌ Error: ${data.message}`, 'error');
+        });
+
+        socket.on('stateChange', (data) => {
+            console.log('🔄 Cambio de estado:', data.state);
+        });
+
+        // Funciones para el manejo del DOM
+        function displayQRCode(qrData, attempts) {
+            qrContainer.innerHTML = `<img src="${qrData}" alt="Código QR" class="qr-code">`;
+            qrStatus.textContent = `📱 Escanea este código QR con WhatsApp`;
+            attemptCount.textContent = `Intento: ${attempts}`;
+        }
+
+        function hideQRCode() {
+            qrContainer.innerHTML = `
+                <div class="qr-placeholder">
+                    <div>
+                        <div style="font-size: 2em; margin-bottom: 10px;">✅</div>
+                        <div>WhatsApp conectado</div>
+                    </div>
+                </div>
+            `;
+            qrStatus.textContent = `✅ WhatsApp conectado exitosamente`;
+            attemptCount.textContent = '';
+        }
+
+        function updateStatus(status, connected) {
+            const statusMessages = {
+                'isLogged': '✅ WhatsApp conectado',
+                'notLogged': '🔄 Esperando escaneo de QR',
+                'qrReadSuccess': '✅ QR escaneado exitosamente',
+                'qrReadFail': '❌ Error al leer QR',
+                'browserClose': '❌ Navegador cerrado',
+                'chatsAvailable': '✅ Chats disponibles',
+                'initBrowser': '🌐 Iniciando navegador...',
+                'initWhatsapp': '📱 Iniciando WhatsApp...',
+                'successPageWhatsapp': '✅ Página de WhatsApp cargada'
+            };
+
+            const message = statusMessages[status] || `🔄 ${status}`;
+            statusText.textContent = message;
+
+            if (connected) {
+                statusBar.className = 'status-bar status-connected';
+                isConnected = true;
+            } else if (status.includes('error') || status.includes('fail') || status.includes('Close')) {
+                statusBar.className = 'status-bar status-error';
+                isConnected = false;
+            } else {
+                statusBar.className = 'status-bar';
+                isConnected = false;
+            }
+        }
+
+        function addSystemMessage(message, type = 'info') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `${type}-card`;
+            messageDiv.innerHTML = `
+                <strong>${new Date().toLocaleTimeString()}</strong><br>
+                ${message}
+            `;
+            messagesContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function addReceivedMessage(data) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message message-received';
+            messageDiv.innerHTML = `
+                <strong>📨 Mensaje recibido</strong><br>
+                <strong>De:</strong> ${data.from}<br>
+                <strong>Mensaje:</strong> ${data.body}<br>
+                <div class="message-time">${data.timestamp}</div>
+            `;
+            messagesContainer.appendChild(messageDiv);
+            scrollToBottom();
+            messageCount++;
+        }
+
+        function addSentMessage(data) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message message-sent';
+            messageDiv.innerHTML = `
+                <strong>📤 Respuesta automática</strong><br>
+                <strong>Para:</strong> ${data.to}<br>
+                <strong>Mensaje:</strong> ${data.message}<br>
+                <div class="message-time">${data.timestamp}</div>
+                ${data.success ? '✅' : '❌'}
+            `;
+            messagesContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function enableControls() {
+            phoneInput.disabled = false;
+            messageInput.disabled = false;
+            sendButton.disabled = false;
+        }
+
+        // Función para enviar mensaje manual
+        async function sendManualMessage() {
+            const phone = phoneInput.value.trim();
+            const message = messageInput.value.trim();
+
+            if (!phone || !message) {
+                alert('Por favor completa el número y el mensaje');
+                return;
+            }
+
+            if (!isConnected) {
+                alert('WhatsApp no está conectado');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/send-message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ to: phone, message })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    addSystemMessage(`✅ Mensaje enviado a ${phone}: ${message}`, 'success');
+                    messageInput.value = '';
+                } else {
+                    addSystemMessage(`❌ Error al enviar mensaje: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                addSystemMessage(`❌ Error de red: ${error.message}`, 'error');
+            }
+        }
+
+        // Enter para enviar mensaje
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendManualMessage();
+            }
+        });
+
+        // Cargar estado inicial
+        fetch('/api/status')
+            .then(response => response.json())
+            .then(data => {
+                console.log('📊 Estado inicial:', data);
+                updateStatus(data.sessionStatus, data.isConnected);
+                if (data.isConnected) {
+                    enableControls();
+                    hideQRCode();
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error al cargar estado:', error);
+            });
+    </script>
+</body>
+</html>

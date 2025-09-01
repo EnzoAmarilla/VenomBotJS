@@ -1,66 +1,254 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vincular WhatsApp - ReservaTurnos</title>
-  <script src="/socket.io/socket.io.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Venom Bot Demo - WhatsApp Bot</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-  <link rel="icon" href="https://reservaturnos.com/img/favicon.ico" type="image/x-icon">
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #25D366, #128C7E);
+            min-height: 100vh;
+            padding: 20px;
+        }
 
-  <!-- Tailwind -->
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
 
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+        .header {
+            background: #075E54;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
 
-  <style>
-    body {
-      font-family: 'Poppins', sans-serif;
-    }
-  </style>
+        .header h1 {
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .status-bar {
+            background: #128C7E;
+            padding: 15px;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .status-connected {
+            background: #25D366 !important;
+        }
+
+        .status-error {
+            background: #dc3545 !important;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            min-height: 500px;
+        }
+
+        .qr-section {
+            padding: 30px;
+            background: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-right: 1px solid #dee2e6;
+        }
+
+        .qr-code {
+            max-width: 250px;
+            max-height: 250px;
+            border: 3px solid #25D366;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .qr-placeholder {
+            width: 250px;
+            height: 250px;
+            background: #e9ecef;
+            border: 2px dashed #6c757d;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6c757d;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .chat-section {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages-container {
+            flex: 1;
+            background: #e5ddd5;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .message-received {
+            background: white;
+            border-left: 3px solid #25D366;
+        }
+
+        .message-sent {
+            background: #dcf8c6;
+            margin-left: auto;
+            border-right: 3px solid #128C7E;
+        }
+
+        .message-time {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .controls {
+            margin-top: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input, button {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        input {
+            flex: 1;
+        }
+
+        button {
+            background: #25D366;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #128C7E;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .info-card {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .error-card {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .success-card {
+            background: #e8f5e8;
+            border-left: 4px solid #4caf50;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .qr-section {
+                border-right: none;
+                border-bottom: 1px solid #dee2e6;
+            }
+        }
+    </style>
 </head>
-<body class="bg-gray-50 text-gray-800 flex flex-col min-h-screen">
+<body>
+    <div class="container">
+    <!-- <div class="header">
+      <h1>🕷️ Venom Bot Demo</h1>
+      <p>Bot de WhatsApp con respuestas automáticas</p>
+    </div> -->
 
-  <!-- Navbar -->
-  <nav class="bg-white shadow-md">
-    <div class="max-w-6xl mx-auto px-4 flex justify-between items-center py-3">
-      <a href="https://reservaturnos.com">
-        <img src="https://reservaturnos.com/img/ReservaTurnosLogo.png" alt="Logo" class="w-12">
-      </a>
-      <a href="https://reservaturnos.com/dashboard" 
-         class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition font-semibold">
-        Volver al Dashboard
-      </a>
+    <div class="status-bar" id="statusBar">
+      <span id="statusText">🔄 Iniciando...</span>
     </div>
-  </nav>
 
-  <!-- Contenido principal -->
-  <main class="flex-grow flex items-center justify-center">
-    <div class="bg-white shadow-lg max-w-xl rounded-2xl p-10 text-center">
-      <h1 class="text-2xl font-bold text-purple-700 mb-3">Escaneá el QR para vincular tu WhatsApp</h1>
-      
-      <div class="status-bar" id="statusBar" style="display: none;">
-         <span id="statusText">🔄 Iniciando...</span>
+    <!-- <div class="main-content"> -->
+    <div>
+      <!-- Sección del código QR -->
+      <div class="qr-section">
+        <h4>📱 Código QR de WhatsApp</h3>
+        <br>
+        <div id="qrContainer">
+          <div class="qr-placeholder">
+            <div>
+              <div style="font-size: 2em; margin-bottom: 10px;">📱</div>
+              <div>Esperando código QR...</div>
+            </div>
+          </div>
+        </div>
+        <p id="qrStatus">Iniciando Venom Bot...</p>
+        <div id="attemptCount" style="margin-top: 10px; font-weight: bold;"></div>
       </div>
 
-      <div class="flex items-center justify-center mb-3">
-          <i data-lucide="smartphone" class="w-4 h-4 md:w-5 md:h-5 mr-2"></i>
-          <p id="qrStatus">Cargando QR...</p>
-      </div>
-
-      <div id="attemptCount" style="display:none; margin-top: 10px; font-weight: bold;"></div>
-
-      <!-- Aquí va el QR generado dinámicamente por Venom Bot -->
-      <div id="qrContainer" class="mb-6 flex justify-center">
-        <!-- Tu script de QR lo renderiza acá -->
-      </div>
-
-      <p class="text-gray-600 mb-6">
-        Abri tu WhatsApp en el celular → <br>
-        Ajustes <strong>&gt;</strong> Dispositivos vinculados <strong>&gt;</strong> Vincular un dispositivo.
-      </p>
-
+      <!-- Sección del chat -->
       <div class="chat-section" style="display: none;">
         <h3>💬 Mensajes en Tiempo Real</h3>
         <div class="messages-container" id="messagesContainer">
@@ -79,26 +267,9 @@
           </div>
         </div>
       </div>
-
-      <a href="https://reservaturnos.com/dashboard" 
-         class="inline-block bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition font-medium">
-        Volver al Dashboard
-      </a>
     </div>
-  </main>
+  </div>
 
-  <!-- Footer -->
-  <footer class="bg-gray-200 py-4 text-center text-sm text-gray-600">
-    &copy; <script>document.write(new Date().getFullYear())</script> ReservaTurnos. Todos los derechos reservados.
-  </footer>
-
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      lucide.createIcons();
-    });
-  </script>
-  <!-- Scripts de VenomBot (ejemplo) -->
   <script>
     const socket = io();
     const sessionId = "profesional_2"; // 👉 cámbialo dinámicamente según login
@@ -171,9 +342,8 @@
     // ================================
     function displayQRCode(qrData, attempts) {
       qrContainer.innerHTML = `<img src="${qrData}" alt="Código QR" class="qr-code">`;
-      qrStatus.textContent = `Esperando escaneo de QR`;
+      qrStatus.textContent = `📱 Escanea este código QR con WhatsApp`;
       attemptCount.textContent = `Intento: ${attempts}`;
-      lucide.createIcons();
     }
 
     function hideQRCode() {
@@ -192,7 +362,7 @@
     function updateStatus(status, connected) {
       const statusMessages = {
         'isLogged': '✅ WhatsApp conectado',
-        'notLogged': '<i data-lucide="plus-circle" class="w-4 h-4 md:w-5 md:h-5"></i> Esperando escaneo de QR',
+        'notLogged': '🔄 Esperando escaneo de QR',
         'qrReadSuccess': '✅ QR escaneado exitosamente',
         'qrReadFail': '❌ Error al leer QR',
         'browserClose': '❌ Navegador cerrado',
@@ -284,5 +454,6 @@
       }
     }
   </script>
+
 </body>
 </html>
