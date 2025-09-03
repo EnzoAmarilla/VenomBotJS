@@ -34,4 +34,5 @@ build/
 Thumbs.db
 
 # Otros archivos
-tokensgoogle-chrome-stable_current_x86_64.rpm
+tokens
+google-chrome-stable_current_x86_64.rpm
