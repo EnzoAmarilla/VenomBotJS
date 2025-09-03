@@ -98,10 +98,21 @@
       lucide.createIcons();
     });
   </script>
+  
   <!-- Scripts de VenomBot (ejemplo) -->
   <script>
     const socket = io();
-    const sessionId = "profesional_2"; // 👉 cámbialo dinámicamente según login
+
+    // Obtener la ruta actual
+    const path = window.location.pathname; // ej: "/123"
+    
+    // Dividir por "/" y tomar el último segmento
+    const segments = path.split('/').filter(Boolean);
+    const userId = segments[segments.length - 1];
+
+    console.log("User ID capturado desde URL:", userId);
+
+    const sessionId = userId; // 👉 cámbialo dinámicamente según login
 
     let isConnected = false;
 
