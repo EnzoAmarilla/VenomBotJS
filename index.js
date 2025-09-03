@@ -5,6 +5,11 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const path = require('path');
 const axios = require('axios');
+require('dotenv').config();
+
+const BACKEND_URL = process.env.NODE_ENV === 'production' 
+  ? process.env.PROD_BACKEND 
+  : process.env.LOCAL_BACKEND;
 
 const app = express();
 // Esto debe ir **después** de app.use(express.static(...))
@@ -83,7 +88,7 @@ function configurarListeners(client, sessionId) {
     });
 
     // Enviar al backend Laravel
-    axios.post('http://127.0.0.1:8000/api/webhook/whatsapp', {
+    axios.post(`${BACKEND_URL}/api/webhook/whatsapp`, {
       session: sessionId,
       from: message.from,
       to: message.to,
