@@ -41,9 +41,19 @@ async function inicializarSesion(sessionId) {
 
     const client = await venom.create({
       session: sessionId,
-      headless: 'new',
+      headless: true,
       useChrome: true,
       logQR: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu'
+      ],
       catchQR: (base64Qr, asciiQR, attempts, urlCode) => {
         console.log(`[${sessionId}] QR intento: ${attempts}`);
         io.emit('qrCode', { sessionId, qr: base64Qr, attempts });
