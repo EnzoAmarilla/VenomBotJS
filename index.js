@@ -4,15 +4,13 @@ const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const axios = require('axios');
 
+const app = express();
 // Esto debe ir **después** de app.use(express.static(...))
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-
-const axios = require('axios');
-
-const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
