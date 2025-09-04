@@ -1,102 +1,198 @@
-// venom-server.js
 const express = require('express');
+const venom = require('venom-bot');
+const http = require('http');
+const socketIo = require('socket.io');
+const cors = require('cors');
+const path = require('path');
 const axios = require('axios');
-const { create } = require('venom-bot');
+require('dotenv').config();
+
+const BACKEND_URL = process.env.NODE_ENV === 'production' 
+  ? process.env.PROD_BACKEND 
+  : process.env.LOCAL_BACKEND;
 
 const app = express();
-const port = 3000;
-const sessions = {};
 
+const server = http.createServer(app);
+const io = socketIo(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+// Configuración de middleware
+app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+// Esto debe ir **después** de app.use(express.static(...))
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
-/**
- * Crear o recuperar sesión
- */
-app.get('/start/:sessionId', async (req, res) => {
-  const sessionId = req.params.sessionId;
+// 📌 Diccionario para manejar múltiples sesiones
+let sessions = {};
+
+// ==========================
+//   INICIALIZAR SESIONES
+// ==========================
+async function inicializarSesion(sessionId) {
+  try {
+    console.log(`🕷️ Iniciando sesión Venom: ${sessionId}...`);
+
+    const client = await venom.create({
+      session: sessionId,
+      headless: true,
+      useChrome: true,
+      logQR: true,
+      headless: "new", // para evitar el warning anterior
+      browserArgs: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox"
+      ],
+      puppeteerOptions: {
+      protocolTimeout: 60000 // 60 segundos
+      },
+      catchQR: (base64Qr, asciiQR, attempts, urlCode) => {
+        console.log(`[${sessionId}] QR intento: ${attempts}`);
+        io.emit('qrCode', { sessionId, qr: base64Qr, attempts });
+      },
+      statusFind: (statusSession, session) => {
+        console.log(`[${sessionId}] Estado de sesión:`, statusSession);
+        io.emit('sessionStatus', {
+          sessionId,
+          status: statusSession,
+          isConnected: statusSession === 'isLogged'
+        });
+      }
+    });
+
+    sessions[sessionId] = { client, isConnected: true };
+    configurarListeners(client, sessionId);
+
+    console.log(`✅ Sesión ${sessionId} conectada!`);
+    io.emit('connected', { sessionId, message: `WhatsApp ${sessionId} conectado!` });
+
+  } catch (error) {
+    console.error(`❌ Error en sesión ${sessionId}:`, error);
+    io.emit('error', { sessionId, message: 'Error al conectar WhatsApp', error: error.message });
+  }
+}
+
+// ==========================
+//   LISTENERS DE MENSAJES
+// ==========================
+function configurarListeners(client, sessionId) {
+  client.onMessage(async (message) => {
+    if (message.from === "status@broadcast" || message.isGroupMsg) return;
+
+    console.log(`[${sessionId}] 📩 Mensaje:`, message.body);
+
+    // Emitir al frontend
+    io.emit('messageReceived', {
+      sessionId,
+      from: message.from,
+      body: message.body,
+      timestamp: new Date().toLocaleString()
+    });
+
+    // Enviar al backend Laravel
+    axios.post(`${BACKEND_URL}/api/webhook/whatsapp`, {
+      session: sessionId,
+      from: message.from,
+      to: message.to,
+      body: message.body.trim(),
+      client_name: message.notifyName,
+    }).catch(() => console.log(`[${sessionId}] ❌ Mensaje no enviado al backend`));
+  });
+
+  client.onStateChange((state) => {
+    console.log(`[${sessionId}] 🔄 Estado cambiado:`, state);
+    io.emit('stateChange', { sessionId, state });
+  });
+}
+
+// ==========================
+//        RUTAS API
+// ==========================
+
+// Crear nueva sesión
+app.post('/api/start-session', (req, res) => {
+  const { sessionId } = req.body;
+  if (!sessionId) return res.status(400).json({ error: 'Falta sessionId' });
 
   if (sessions[sessionId]) {
-    return res.json({ status: 'connected', message: 'Session already active' });
+    return res.json({ success: true, message: `Sesión ${sessionId} ya existe` });
+  }
+
+  inicializarSesion(sessionId);
+  res.json({ success: true, message: `Sesión ${sessionId} iniciada` });
+});
+
+// Enviar mensaje desde una sesión
+app.post('/api/send-message', async (req, res) => {
+  const { sessionId, to, message } = req.body;
+
+  if (!sessions[sessionId] || !sessions[sessionId].isConnected) {
+    return res.status(400).json({ success: false, error: `Sesión ${sessionId} no está conectada` });
   }
 
   try {
-    create(
-      sessionId,
-      // Evento QR
-      (base64Qr, asciiQR, attempts, urlCode) => {
-        console.log(`🔑 QR generado para ${sessionId}`);
-        sessions[sessionId].lastQr = base64Qr;
-
-        // Podés notificar a Laravel para guardar el QR si querés
-        axios.post('http://127.0.0.1:8000/api/whatsapp/qr', {
-          sessionId,
-          qr: base64Qr,
-        }).catch(() => {});
-      },
-      // Evento status
-      (statusSession, sessionName) => {
-        console.log(`📡 Estado sesión ${sessionName}: ${statusSession}`);
-        // Avisar a Laravel cuando la sesión cambie de estado
-        axios.post('http://127.0.0.1:8000/api/whatsapp/status', {
-          sessionId: sessionName,
-          status: statusSession,
-        }).catch(() => {});
-      },
-      {
-        multidevice: true,
-        headless: 'new',
-        qrTimeout: 0,     // ⚡ nunca expira el QR
-        autoClose: 0,     // ⚡ nunca se autocierra la sesión aunque no escanees
-        disableWelcome: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-      }
-    ).then((client) => {
-      console.log('✅ Sesión iniciada correctamente!');
-      sessions[sessionId] = { client };
-
-      // 🔔 Manejo de mensajes entrantes
-      client.onMessage((message) => {
-        console.log('📩 Mensaje recibido:', message.body);
-        axios.post('http://127.0.0.1:8000/api/webhook/whatsapp', {
-          sessionId,
-          message,
-        }).catch(() => {});
-      });
-
-      res.json({
-        status: 'pending',
-        message: 'Session created, waiting for QR',
-      });
-    });
-  } catch (err) {
-    console.error('❌ Error creando sesión', err);
-    res.status(500).json({ error: 'Error creating session', details: err });
+    const result = await sessions[sessionId].client.sendText(to, message);
+    res.json({ success: true, result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-/**
- * Obtener el último QR generado
- */
-app.get('/qr/:sessionId', (req, res) => {
-  const sessionId = req.params.sessionId;
-  if (!sessions[sessionId] || !sessions[sessionId].lastQr) {
-    return res.status(404).json({ error: 'No QR available' });
+// Estado de una sesión
+app.get('/api/status/:sessionId', (req, res) => {
+  const { sessionId } = req.params;
+  if (!sessions[sessionId]) {
+    return res.status(404).json({ success: false, error: 'Sesión no encontrada' });
   }
-  res.json({ qr: sessions[sessionId].lastQr });
+
+  res.json({
+    sessionId,
+    isConnected: sessions[sessionId].isConnected,
+  });
 });
 
-/**
- * Cerrar sesión manualmente
- */
-app.get('/logout/:sessionId', async (req, res) => {
-  const sessionId = req.params.sessionId;
-  if (sessions[sessionId]) {
-    await sessions[sessionId].client.logout();
-    delete sessions[sessionId];
-    return res.json({ message: 'Session logged out' });
-  }
-  res.status(404).json({ error: 'No session found' });
+// ==========================
+//     SOCKET.IO CLIENTES
+// ==========================
+io.on('connection', (socket) => {
+  console.log('🔌 Cliente conectado:', socket.id);
+
+  socket.on('disconnect', () => {
+    console.log('🔌 Cliente desconectado:', socket.id);
+  });
 });
 
-app.listen(port, () => console.log(`🚀 Venom server running on port ${port}`));
+// ==========================
+//     INICIAR SERVIDOR
+// ==========================
+const PORT = process.env.PORT || 3000;
+
+server.listen(PORT, () => {
+  console.log(`\n🚀 Servidor iniciado en puerto ${PORT}`);
+  console.log(`🌐 Abre tu navegador en: http://localhost:${PORT}\n`);
+});
+
+// ==========================
+//  MANEJAR CIERRE SERVIDOR
+// ==========================
+process.on('SIGINT', async () => {
+  console.log('\n🛑 Cerrando aplicación...');
+
+  for (let sessionId in sessions) {
+    try {
+      await sessions[sessionId].client.close();
+      console.log(`✅ Sesión ${sessionId} cerrada correctamente`);
+    } catch (error) {
+      console.error(`❌ Error al cerrar sesión ${sessionId}:`, error);
+    }
+  }
+
+  process.exit(0);
+});
