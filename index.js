@@ -45,16 +45,14 @@ async function inicializarSesion(sessionId) {
       headless: true,
       useChrome: true,
       logQR: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-gpu'
+      headless: "new", // para evitar el warning anterior
+      browserArgs: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox"
       ],
+      puppeteerOptions: {
+      protocolTimeout: 60000 // 60 segundos
+      },
       catchQR: (base64Qr, asciiQR, attempts, urlCode) => {
         console.log(`[${sessionId}] QR intento: ${attempts}`);
         io.emit('qrCode', { sessionId, qr: base64Qr, attempts });
