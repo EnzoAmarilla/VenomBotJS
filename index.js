@@ -98,6 +98,9 @@ function ensureSession(sessionId) {
       timestamp: new Date().toISOString()
     });
 
+    console.log("🌐 BACKEND_URL:", BACKEND_URL);
+    console.log("🔑 WEBHOOK_TOKEN:", WEBHOOK_TOKEN);
+
     // Mandamos a Laravel para que procese la lógica de reservas
     try {
       await axios.post(
@@ -114,9 +117,19 @@ function ensureSession(sessionId) {
           headers: WEBHOOK_TOKEN ? { 'X-Webhook-Token': WEBHOOK_TOKEN } : {}
         }
       );
-    } catch (err) {
-      console.log(`[${sessionId}] ❌ No pude notificar a Laravel:`, err?.message);
+  } catch (err) {
+    console.log(`[${sessionId}] ❌ No pude notificar a Laravel`);
+    if (err.response) {
+      console.log("👉 Status:", err.response.status);
+      console.log("👉 Data:", err.response.data);
+      console.log("👉 URL:", err.config?.url);
+    } else if (err.request) {
+      console.log("👉 No hubo respuesta del servidor. Request:", err.request);
+    } else {
+      console.log("👉 Error al armar la request:", err.message);
     }
+  }
+
   });
 
   client.initialize().catch(err => {
