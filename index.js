@@ -12,10 +12,6 @@ const BACKEND_URL = process.env.NODE_ENV === 'production'
   : process.env.LOCAL_BACKEND;
 
 const app = express();
-// Esto debe ir **después** de app.use(express.static(...))
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
 
 const server = http.createServer(app);
 const io = socketIo(server, {
@@ -29,6 +25,10 @@ const io = socketIo(server, {
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+// Esto debe ir **después** de app.use(express.static(...))
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // 📌 Diccionario para manejar múltiples sesiones
 let sessions = {};
