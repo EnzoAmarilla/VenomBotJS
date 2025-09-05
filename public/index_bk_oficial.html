@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <title>Vincular WhatsApp</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Lib para renderizar QR en el navegador -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
+    #qr { display:flex; justify-content:center; margin: 20px 0; }
+    .ok { color: #0a0; }
+    .warn { color: #a60; }
+    .err { color: #a00; }
+    .row { margin: 8px 0; }
+    input { padding:8px; width:100%; box-sizing:border-box; }
+    button { padding:10px 14px; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <h1>Vincular WhatsApp</h1>
+  <div id="info" class="row warn">Cargando…</div>
+  <div id="qr"></div>
+
+  <hr/>
+
+  <h3>Probar envío manual (solo para tests)</h3>
+  <div class="row">
+    <input id="to" placeholder="Ej: 54911XXXXXXXX (sin @c.us)"/>
+  </div>
+  <div class="row">
+    <input id="message" placeholder="Mensaje a enviar"/>
+  </div>
+  <div class="row">
+    <button id="sendBtn">Enviar</button>
+  </div>
+
+  <h3>Mensajes entrantes</h3>
+  <pre id="inbox" style="background:#f6f6f6; padding:10px; min-height:80px;"></pre>
+
+  <script>
+    (async function () {
+      const path = window.location.pathname.replace(/\/+$/,''); // sin barra final
+      const parts = path.split('/').filter(Boolean);
+      const sessionId = parts[parts.length - 1] || 'default';
+
+      const info = document.getElementById('info');
+      const qrBox = document.getElementById('qr');
+      let qrWidget = null;
+
+      // Conectar Socket.IO
+      const socket = io();
+      socket.emit('join', sessionId);
+
+      socket.on('status', (data) => {
+        if (data.sessionId !== sessionId) return;
+        info.textContent = `Estado: ${data.status}`;
+      });
+
+      socket.on('qr', (data) => {
+        if (data.sessionId !== sessionId) return;
+        // Renderizar QR en el navegador
+        qrBox.innerHTML = '';
+        qrWidget = new QRCode(qrBox, {
+          text: data.qr,
+          width: 256,
+          height: 256,
+          correctLevel: QRCode.CorrectLevel.M
+        });
+        info.textContent = 'Escaneá el QR con WhatsApp';
+      });
+
+      socket.on('connected', (data) => {
+        if (data.sessionId !== sessionId) return;
+        info.textContent = '✅ WhatsApp conectado';
+        info.className = 'ok';
+        qrBox.innerHTML = '<p><strong>Conectado.</strong> Ya podés cerrar esta pestaña.</p>';
+      });
+
+      socket.on('messageReceived', (data) => {
+        if (data.sessionId !== sessionId) return;
+        const inbox = document.getElementById('inbox');
+        inbox.textContent += `[${data.timestamp}] ${data.from}: ${data.body}\n`;
+      });
+
+      // Pedir iniciar/asegurar sesión
+      await fetch('/api/start-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId })
+      });
+
+      // Envío manual para pruebas
+      document.getElementById('sendBtn').onclick = async () => {
+        const to = document.getElementById('to').value.trim();
+        const message = document.getElementById('message').value.trim();
+        if (!to || !message) return alert('Completa número y mensaje');
+        const res = await fetch('/api/send-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId, to, message })
+        }).then(r => r.json());
+        if (res.success) alert('✅ Enviado');
+        else alert('❌ Error: ' + (res.error || 'desconocido'));
+      };
+    })();
+  </script>
+</body>
+</html>
