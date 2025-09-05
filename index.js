@@ -75,7 +75,7 @@ function ensureSession(sessionId) {
   client.on('ready', async () => {
     sessions[sessionId].ready = true;
     io.to(String(sessionId)).emit('connected', { sessionId, message: 'WhatsApp conectado' });
-    io.to(String(sessionId)).emit('status', { sessionId, status: 'ready' });
+    io.to(String(sessionId)).emit('status', { sessionId, status: 'ok' });
     console.log(`✅ [${sessionId}] listo`);
   });
 
@@ -146,7 +146,7 @@ io.on('connection', (socket) => {
   socket.on('join', (sessionId) => {
     const room = String(sessionId);
     socket.join(room);
-    socket.emit('status', { sessionId, status: 'joined' });
+    socket.emit('status', { sessionId, status: 'conectado' });
   });
 
   socket.on('disconnect', () => {});
